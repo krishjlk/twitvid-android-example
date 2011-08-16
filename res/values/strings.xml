@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">twitvid-android-example</string>
+    <string name="checking_twitter_auth">Checking twitter authentication...</string>
+</resources>

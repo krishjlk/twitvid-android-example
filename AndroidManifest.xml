@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="com.egoclean.twitvid.example"
+          android:versionCode="1"
+          android:versionName="1.0">
+    <application android:label="@string/app_name" android:icon="@drawable/icon">
+        <activity android:name="TwitVidUploader"
+                  android:label="@string/app_name" android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="x-example-oauth-twitter" android:host="callback"/>
+            </intent-filter>
+        </activity>
+        <service android:name="com.twitvid.android.sdk.UploadService"/>
+    </application>
+    <uses-permission android:name="android.permission.INTERNET"/>
+</manifest> 
