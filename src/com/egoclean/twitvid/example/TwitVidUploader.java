@@ -12,15 +12,16 @@ import android.preference.PreferenceManager;
 import android.view.View;
 import android.view.Window;
 import android.widget.Button;
+import android.widget.ProgressBar;
+import android.widget.Toast;
+import com.twitvid.android.sdk.SessionPersister;
 import com.twitvid.android.sdk.UploadServiceHelper;
 import com.twitvid.api.ApiException;
-import com.twitvid.api.TwitVidApi;
+import com.twitvid.api.TwitvidApi;
 import com.twitvid.api.bean.Session;
 import com.twitvid.api.bean.TwitterAuthPack;
 import com.twitvid.api.bean.Values;
 import com.twitvid.api.net.HttpClientExecutor;
-import org.json.JSONException;
-import org.json.JSONObject;
 import twitter4j.Twitter;
 import twitter4j.TwitterException;
 import twitter4j.TwitterFactory;
@@ -31,13 +32,14 @@ import twitter4j.auth.RequestToken;
 import twitter4j.conf.Configuration;
 import twitter4j.conf.ConfigurationBuilder;
 
-public class TwitVidUploader extends Activity implements View.OnClickListener, TwitterUtils.BaseAuthChecker.OnAuthCheckerResult {
+public class TwitvidUploader extends Activity implements View.OnClickListener, TwitterUtils.BaseAuthChecker.OnAuthCheckerResult {
     private static final int PICK_VIDEO = 8219;
     private Button mUploadButton;
     private ResultReceiver mReceiver;
     private Uri mCurrentVideo;
     private Twitter mTwitter;
     private RequestToken mRequestToken;
+    private ProgressBar mProgressBar;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -45,6 +47,7 @@ public class TwitVidUploader extends Activity implements View.OnClickListener, T
         requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
         setContentView(R.layout.main);
 
+        mProgressBar = (ProgressBar) findViewById(R.id.progressbar);
         mUploadButton = (Button) findViewById(R.id.upload);
         mReceiver = new UploadReceiver(new Handler());
 
@@ -65,43 +68,27 @@ public class TwitVidUploader extends Activity implements View.OnClickListener, T
             case R.id.upload:
                 Values values = new Values();
                 values.setSession(new Session());
-                TwitVidApi api = new TwitVidApi(values, HttpClientExecutor.getInstance());
                 try {
-                    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-                    String token = prefs.getString(TwitterUtils.TOKEN_KEY, null);
-                    String secret = prefs.getString(TwitterUtils.TOKEN_SECRET_KEY, null);
-                    String authenticate = api.authenticate(new TwitterAuthPack.Builder()
-                            .setConsumerKey(TwitterConstants.CONSUMER_KEY)
-                            .setConsumerSecret(TwitterConstants.CONSUMER_SECRET)
-                            .setOAuthToken(token)
-                            .setOAuthTokenSecret(secret)
-                            .build());
-
-                    Session session = new Session();
-                    try {
-                        JSONObject response = new JSONObject(authenticate).getJSONObject("rsp");
-                        session.setTwitvidUserId(response.getString("twitvid_user_id"));
-                        session.setProfilePictureUrl(response.getString("profilepic"));
-                        session.setToken(response.getString("token"));
-                        session.setUserId(response.getString("user_id"));
-                        session.setTimeToLive(response.getLong("ttl"));
-                        session.setExpirationTimestamp(System.currentTimeMillis() + session.getTimeToLive());
-                        Session.UserInfo userInfo = new Session.UserInfo();
-                        userInfo.setFacebookId("facebook_id");
-                        userInfo.setFacebookName("facebook_name");
-                        userInfo.setTwitterId("twitter_id");
-                        userInfo.setTwitterName("twitter_name");
-                        userInfo.setTwitterScreenName("twitter_screenname");
-                        session.setUserInfo(userInfo);
+                    TwitvidApi api = SessionPersister.getApi(this);
+                    if (!api.getValues().getSession().isValid()) {
+                        setProgressBarIndeterminate(true);
+                        api = new TwitvidApi(values, HttpClientExecutor.getInstance());
+                        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+                        String token = prefs.getString(TwitterUtils.TOKEN_KEY, null);
+                        String secret = prefs.getString(TwitterUtils.TOKEN_SECRET_KEY, null);
+                        Session session = api.authenticate(new TwitterAuthPack.Builder()
+                                .setConsumerKey(TwitterConstants.CONSUMER_KEY)
+                                .setConsumerSecret(TwitterConstants.CONSUMER_SECRET)
+                                .setOAuthToken(token)
+                                .setOAuthTokenSecret(secret)
+                                .build());
 
                         api.getValues().setSession(session);
-
-                        UploadServiceHelper.startUpload(this, api, mReceiver, mCurrentVideo,
-                                MediaHelper.getVideoType(TwitVidUploader.this, mCurrentVideo),
-                                "Testing twitvid app", false, null, true, true);
-                    } catch (JSONException e) {
-                        e.printStackTrace();
+                        SessionPersister.persist(this, api);
+                        setProgressBarIndeterminate(false);
                     }
+                    UploadServiceHelper.startUpload(this, mReceiver, mCurrentVideo,
+                            "Posting video from Android", null, false, false);
                 } catch (ApiException e) {
                     e.printStackTrace();
                 }
@@ -118,7 +105,7 @@ public class TwitVidUploader extends Activity implements View.OnClickListener, T
         switch (requestCode) {
             case PICK_VIDEO:
                 mCurrentVideo = data.getData();
-                mUploadButton.setText("Upload " + MediaHelper.getVideoName(TwitVidUploader.this, mCurrentVideo));
+                mUploadButton.setText("Upload " + MediaHelper.getVideoName(TwitvidUploader.this, mCurrentVideo));
                 mUploadButton.setEnabled(true);
                 break;
         }
@@ -155,7 +142,11 @@ public class TwitVidUploader extends Activity implements View.OnClickListener, T
         }
     }
 
-    private class UploadReceiver extends ResultReceiver {
+    private class UploadReceiver extends ResultReceiver{
+        private int last = -1;
+        private long totalBytes;
+        private long size;
+
         public UploadReceiver(Handler handler) {
             super(handler);
         }
@@ -163,6 +154,22 @@ public class TwitVidUploader extends Activity implements View.OnClickListener, T
         @Override
         protected void onReceiveResult(int resultCode, Bundle resultData) {
             super.onReceiveResult(resultCode, resultData);
+            if (resultCode != last) {
+                last = resultCode;
+                System.out.println(":::::: "+resultCode+": "+resultData);
+            }
+            if (resultCode == 1) {
+                long totalBytesSoFar = resultData.getLong("totalBytesSoFar");
+                size = resultData.getLong("size");
+                mProgressBar.setProgress((int) ((totalBytesSoFar+totalBytes)*100/ size));
+            } else if (resultCode == 2) {
+                totalBytes = resultData.getLong("totalBytes");
+                System.out.println(":::::::::   total bytes "+totalBytes);
+                if(totalBytes == size) {
+                    Toast.makeText(TwitvidUploader.this, "Upload finished :)", Toast.LENGTH_LONG).show();
+                    mProgressBar.setProgress(0);
+                }
+            }
         }
     }
 

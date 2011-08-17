@@ -10,6 +10,10 @@ import twitter4j.TwitterException;
 import twitter4j.TwitterFactory;
 import twitter4j.auth.AccessToken;
 
+/**
+ * Contains utility methods for twitter
+ * @author cristian
+ */
 public class TwitterUtils {
     public static final int LOGGED_IN = 0;
     public static final int NOT_LOGGED_IN = 1;
@@ -19,7 +23,13 @@ public class TwitterUtils {
     public static final String TOKEN_KEY = "token";
     public static final String TOKEN_SECRET_KEY = "token_secret";
 
-    public static int isAuthenticated(Context context, Twitter twitter) {
+    /**
+     * Checks whether the given twitter object contains a valid session
+     * @param context a context
+     * @param twitter the twitter object to verify
+     * @return
+     */
+    private static int isAuthenticated(Context context, Twitter twitter) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         String token = prefs.getString(TOKEN_KEY, null);
         String secret = prefs.getString(TOKEN_SECRET_KEY, null);
@@ -53,6 +63,9 @@ public class TwitterUtils {
         return NOT_LOGGED_IN;
     }
 
+    /**
+     * This class provides a way to asynchronously verify whether the user is authenticated or not
+     */
     public static class BaseAuthChecker extends AsyncTask<Void, Void, Integer> {
         private Context context;
         private OnAuthCheckerResult callback;

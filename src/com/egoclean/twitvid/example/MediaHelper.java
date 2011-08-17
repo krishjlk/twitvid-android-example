@@ -16,12 +16,4 @@ public class MediaHelper {
         return c.getString(c.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME));
     }
 
-    public static String getVideoType(Context context, Uri media) {
-        ContentResolver cr = context.getContentResolver();
-        Cursor c = cr.query(media, new String[]{MediaStore.MediaColumns.MIME_TYPE}, null, null, null);
-        if (c == null || (!c.moveToFirst())) {
-            return null;
-        }
-        return c.getString(c.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE));
-    }
 }
