@@ -37,7 +37,6 @@ public class TwitvidUploader extends Activity implements View.OnClickListener, T
     private static final int PICK_VIDEO = 8219;
     private static final int CHOOSE_CHILD = 0;
     private static final int UPLOAD_CHILD = 1;
-    private Button mUploadButton;
     private ResultReceiver mReceiver;
     private Uri mCurrentVideo;
     private Twitter mTwitter;
@@ -55,7 +54,7 @@ public class TwitvidUploader extends Activity implements View.OnClickListener, T
         mViewSwitcher = (ViewSwitcher) findViewById(R.id.switcher);
         mMessageBox = (EditText) findViewById(R.id.message);
         mProgressBar = (ProgressBar) findViewById(R.id.progressbar);
-        mUploadButton = (Button) findViewById(R.id.upload);
+        Button uploadButton = (Button) findViewById(R.id.upload);
         mReceiver = new UploadReceiver(new Handler());
 
         new TwitterUtils.BaseAuthChecker(this, this).execute();
