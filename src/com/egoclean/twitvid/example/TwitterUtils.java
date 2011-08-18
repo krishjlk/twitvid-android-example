@@ -14,11 +14,11 @@ import twitter4j.auth.AccessToken;
  * Contains utility methods for twitter
  * @author cristian
  */
-public class TwitterUtils {
+class TwitterUtils {
     public static final int LOGGED_IN = 0;
-    public static final int NOT_LOGGED_IN = 1;
-    public static final int NETWORK_PROBLEMS = 2;
-    public static final int OAUTH_PROBLEMS = 3;
+    private static final int NOT_LOGGED_IN = 1;
+    private static final int NETWORK_PROBLEMS = 2;
+    private static final int OAUTH_PROBLEMS = 3;
 
     public static final String TOKEN_KEY = "token";
     public static final String TOKEN_SECRET_KEY = "token_secret";
@@ -27,7 +27,7 @@ public class TwitterUtils {
      * Checks whether the given twitter object contains a valid session
      * @param context a context
      * @param twitter the twitter object to verify
-     * @return
+     * @return LOGGED_IN, NOT_LOGGED_IN, NETWORK_PROBLEMS or OAUTH_PROBLEMS
      */
     private static int isAuthenticated(Context context, Twitter twitter) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
@@ -67,10 +67,10 @@ public class TwitterUtils {
      * This class provides a way to asynchronously verify whether the user is authenticated or not
      */
     public static class BaseAuthChecker extends AsyncTask<Void, Void, Integer> {
-        private Context context;
-        private OnAuthCheckerResult callback;
-        private ProgressDialog progressDialog;
-        private Twitter twitter;
+        private final Context context;
+        private final OnAuthCheckerResult callback;
+        private final ProgressDialog progressDialog;
+        private final Twitter twitter;
 
         public BaseAuthChecker(Context context, OnAuthCheckerResult callback) {
             this.context = context;
@@ -97,12 +97,12 @@ public class TwitterUtils {
             super.onPostExecute(result);
             progressDialog.dismiss();
             if (callback != null) {
-                callback.onAuthChecker(result, twitter);
+                callback.onAuthChecker(result);
             }
         }
 
         public interface OnAuthCheckerResult{
-            void onAuthChecker(int result, Twitter twitter);
+            void onAuthChecker(int result);
         }
     }
 }

@@ -2,4 +2,7 @@
 <resources>
     <string name="app_name">twitvid-android-example</string>
     <string name="checking_twitter_auth">Checking twitter authentication...</string>
+    <string name="upload_finished">Upload finished :)</string>
+    <string name="message_hint">Put your message here</string>
+    <string name="upload">Upload</string>
 </resources>

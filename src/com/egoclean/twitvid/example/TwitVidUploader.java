@@ -9,11 +9,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.ResultReceiver;
 import android.preference.PreferenceManager;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
-import android.widget.Button;
-import android.widget.ProgressBar;
-import android.widget.Toast;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.*;
 import com.twitvid.android.sdk.SessionPersister;
 import com.twitvid.android.sdk.UploadServiceHelper;
 import com.twitvid.api.ApiException;
@@ -21,7 +21,6 @@ import com.twitvid.api.TwitvidApi;
 import com.twitvid.api.bean.Session;
 import com.twitvid.api.bean.TwitterAuthPack;
 import com.twitvid.api.bean.Values;
-import com.twitvid.api.net.HttpClientExecutor;
 import twitter4j.Twitter;
 import twitter4j.TwitterException;
 import twitter4j.TwitterFactory;
@@ -32,14 +31,20 @@ import twitter4j.auth.RequestToken;
 import twitter4j.conf.Configuration;
 import twitter4j.conf.ConfigurationBuilder;
 
+import static com.twitvid.android.sdk.ResultReceiverConstants.*;
+
 public class TwitvidUploader extends Activity implements View.OnClickListener, TwitterUtils.BaseAuthChecker.OnAuthCheckerResult {
     private static final int PICK_VIDEO = 8219;
+    private static final int CHOOSE_CHILD = 0;
+    private static final int UPLOAD_CHILD = 1;
     private Button mUploadButton;
     private ResultReceiver mReceiver;
     private Uri mCurrentVideo;
     private Twitter mTwitter;
     private RequestToken mRequestToken;
     private ProgressBar mProgressBar;
+    private ViewSwitcher mViewSwitcher;
+    private EditText mMessageBox;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -47,6 +52,8 @@ public class TwitvidUploader extends Activity implements View.OnClickListener, T
         requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
         setContentView(R.layout.main);
 
+        mViewSwitcher = (ViewSwitcher) findViewById(R.id.switcher);
+        mMessageBox = (EditText) findViewById(R.id.message);
         mProgressBar = (ProgressBar) findViewById(R.id.progressbar);
         mUploadButton = (Button) findViewById(R.id.upload);
         mReceiver = new UploadReceiver(new Handler());
@@ -71,8 +78,8 @@ public class TwitvidUploader extends Activity implements View.OnClickListener, T
                 try {
                     TwitvidApi api = SessionPersister.getApi(this);
                     if (!api.getValues().getSession().isValid()) {
-                        setProgressBarIndeterminate(true);
-                        api = new TwitvidApi(values, HttpClientExecutor.getInstance());
+                        setProgressBarIndeterminateVisibility(true);
+                        api = new TwitvidApi(values);
                         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
                         String token = prefs.getString(TwitterUtils.TOKEN_KEY, null);
                         String secret = prefs.getString(TwitterUtils.TOKEN_SECRET_KEY, null);
@@ -85,10 +92,12 @@ public class TwitvidUploader extends Activity implements View.OnClickListener, T
 
                         api.getValues().setSession(session);
                         SessionPersister.persist(this, api);
-                        setProgressBarIndeterminate(false);
                     }
+                    setProgressBarIndeterminateVisibility(true);
+                    InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                    imm.hideSoftInputFromWindow(mMessageBox.getWindowToken(), 0);
                     UploadServiceHelper.startUpload(this, mReceiver, mCurrentVideo,
-                            "Posting video from Android", null, false, false);
+                            mMessageBox.getText().toString(), null, false, false);
                 } catch (ApiException e) {
                     e.printStackTrace();
                 }
@@ -105,8 +114,7 @@ public class TwitvidUploader extends Activity implements View.OnClickListener, T
         switch (requestCode) {
             case PICK_VIDEO:
                 mCurrentVideo = data.getData();
-                mUploadButton.setText("Upload " + MediaHelper.getVideoName(TwitvidUploader.this, mCurrentVideo));
-                mUploadButton.setEnabled(true);
+                mViewSwitcher.setDisplayedChild(UPLOAD_CHILD);
                 break;
         }
     }
@@ -131,7 +139,7 @@ public class TwitvidUploader extends Activity implements View.OnClickListener, T
     }
 
     @Override
-    public void onAuthChecker(int result, Twitter twitter) {
+    public void onAuthChecker(int result) {
         if (result == TwitterUtils.LOGGED_IN) {
             findViewById(R.id.login).setEnabled(false);
             findViewById(R.id.choose).setEnabled(true);
@@ -142,9 +150,26 @@ public class TwitvidUploader extends Activity implements View.OnClickListener, T
         }
     }
 
-    private class UploadReceiver extends ResultReceiver{
-        private int last = -1;
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK && mViewSwitcher.getDisplayedChild() == UPLOAD_CHILD) {
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK && mViewSwitcher.getDisplayedChild() == UPLOAD_CHILD) {
+            mViewSwitcher.setDisplayedChild(CHOOSE_CHILD);
+            return true;
+        }
+        return super.onKeyUp(keyCode, event);
+    }
+
+    private class UploadReceiver extends ResultReceiver {
         private long totalBytes;
+
         private long size;
 
         public UploadReceiver(Handler handler) {
@@ -154,23 +179,27 @@ public class TwitvidUploader extends Activity implements View.OnClickListener, T
         @Override
         protected void onReceiveResult(int resultCode, Bundle resultData) {
             super.onReceiveResult(resultCode, resultData);
-            if (resultCode != last) {
-                last = resultCode;
-                System.out.println(":::::: "+resultCode+": "+resultData);
-            }
-            if (resultCode == 1) {
-                long totalBytesSoFar = resultData.getLong("totalBytesSoFar");
-                size = resultData.getLong("size");
-                mProgressBar.setProgress((int) ((totalBytesSoFar+totalBytes)*100/ size));
-            } else if (resultCode == 2) {
-                totalBytes = resultData.getLong("totalBytes");
-                System.out.println(":::::::::   total bytes "+totalBytes);
-                if(totalBytes == size) {
-                    Toast.makeText(TwitvidUploader.this, "Upload finished :)", Toast.LENGTH_LONG).show();
-                    mProgressBar.setProgress(0);
-                }
+            switch (resultCode) {
+                case ON_UPLOAD_START:
+                    setProgressBarIndeterminateVisibility(true);
+                    break;
+                case ON_BYTES_UPLOADED:
+                    long totalBytesSoFar = resultData.getLong(TOTAL_BYTES_SO_FAR);
+                    size = resultData.getLong(SIZE);
+                    mProgressBar.setProgress((int) ((totalBytesSoFar + totalBytes) * 100 / size));
+                    break;
+                case ON_UPLOAD_FINISH:
+                    totalBytes = resultData.getLong(TOTAL_BYTES);
+                    if (totalBytes == size) {
+                        Toast.makeText(TwitvidUploader.this, R.string.upload_finished, Toast.LENGTH_LONG).show();
+                        mProgressBar.setProgress(0);
+                        setProgressBarIndeterminateVisibility(false);
+                        mViewSwitcher.setDisplayedChild(CHOOSE_CHILD);
+                    }
+                    break;
             }
         }
+
     }
 
     private class TwitterAuthLauncher extends AsyncTask<Void, Void, Void> {
@@ -178,7 +207,7 @@ public class TwitvidUploader extends Activity implements View.OnClickListener, T
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
-            setProgressBarIndeterminate(true);
+            setProgressBarIndeterminateVisibility(true);
         }
 
         @Override
@@ -204,7 +233,8 @@ public class TwitvidUploader extends Activity implements View.OnClickListener, T
         @Override
         protected void onPostExecute(Void aVoid) {
             super.onPostExecute(aVoid);
-            setProgressBarIndeterminate(false);
+            setProgressBarIndeterminateVisibility(false);
         }
+
     }
 }

@@ -1,38 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<ViewSwitcher
         xmlns:android="http://schemas.android.com/apk/res/android"
-        android:orientation="vertical"
+        android:id="@+id/switcher"
         android:layout_width="fill_parent"
-        android:layout_height="fill_parent">
-    <TextView
+        android:layout_height="wrap_content">
+    <LinearLayout
+            android:orientation="vertical"
             android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:text="Twitvid Upload - Android Example"/>
-    <Button
-            android:id="@+id/login"
+            android:layout_height="fill_parent">
+        <Button
+                android:id="@+id/login"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:text="Login"
+                android:onClick="onClick"/>
+        <Button
+                android:id="@+id/choose"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:text="Choose video file"
+                android:enabled="false"
+                android:onClick="onClick"/>
+    </LinearLayout>
+    <LinearLayout
+            android:orientation="vertical"
             android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:text="Login"
-            android:onClick="onClick"/>
-    <Button
-            android:id="@+id/choose"
-            android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:text="Choose video file"
-            android:enabled="false"
-            android:onClick="onClick"/>
-    <Button
-            android:id="@+id/upload"
-            android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:text="Upload"
-            android:enabled="false"
-            android:onClick="onClick"/>
-    <ProgressBar
-            android:id="@+id/progressbar"
-            android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:max="100"
-            style="?android:attr/progressBarStyleHorizontal"/>
-</LinearLayout>
+            android:layout_height="fill_parent">
+        <EditText
+                android:id="@+id/message"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:minLines="4"
+                android:gravity="top"
+                android:maxLength="115"
+                android:inputType="text|textMultiLine|textCapSentences"
+                android:hint="@string/message_hint"/>
+        <Button
+                android:id="@+id/upload"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/upload"
+                android:onClick="onClick"/>
+        <ProgressBar
+                android:id="@+id/progressbar"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                style="?android:attr/progressBarStyleHorizontal"/>
+    </LinearLayout>
+</ViewSwitcher>
 
